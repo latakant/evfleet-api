@@ -1,0 +1,657 @@
+// ============================================================
+// EVFleet — Prisma Schema
+// Step 0A: Full schema before any NestJS code
+// Models: 23 | Enums: 21
+// Stack: PostgreSQL 16 · Prisma 7
+// Conventions: CUID PKs · snake_case @@map · Decimal(10,2) INR
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS — defined before models (dependency order)
+// ============================================================
+
+enum UserRole {
+  PILOT
+  TEAM_LEAD
+  HUB_MANAGER
+  CLIENT_MANAGER
+  OPS_ADMIN
+  SUPER_ADMIN
+}
+
+enum Language {
+  ENGLISH
+  HINDI
+  KANNADA
+  MARATHI
+}
+
+enum PilotStatus {
+  ONBOARDING       // Registered, KYC not started
+  KYC_PENDING      // At least one doc uploaded, under admin review
+  KYC_VERIFIED     // All 3 docs approved by admin
+  TOKEN_BOOKED     // Vehicle token reserved at hub
+  ACTIVE           // Vehicle assigned, doing deliveries
+  INACTIVE         // No deliveries / overdue rent
+  SUSPENDED        // Suspended by admin (temp)
+  TERMINATED       // Permanently off-platform
+}
+
+enum OfferingType {
+  RENT_2_WHEELER   // Standard 2W scooter rental
+  RENT_3_WHEELER   // 3W loader/cargo rental
+  RENT_TO_OWN      // Lease-to-own over 12 months
+  BYOB             // Bring Your Own Bike
+}
+
+enum PlanType {
+  B2B_POSTPAID     // Works under enterprise client (Zomato etc.) — Zypp pays pilot
+  B2C_PREPAID      // Works independently — client pays pilot directly
+}
+
+enum BadgeLevel {
+  BRONZE
+  SILVER
+  GOLD
+  BLACK_PLATINUM
+}
+
+enum KYCStatus {
+  PENDING
+  UPLOADED         // Doc uploaded, not yet reviewed
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum VehicleType {
+  TWO_WHEELER
+  THREE_WHEELER
+}
+
+enum VehicleCategory {
+  SCOOTER          // 2W scooter for delivery
+  L3               // 3W — 25-30 kmph, 70-90 km range
+  L5               // 3W — 50-55 kmph, 60-120 km range
+}
+
+enum VehicleCondition {
+  NEW
+  PRE_OWNED
+}
+
+enum BatteryType {
+  SWAP
+  CHARGING
+  SWAP_AND_CHARGING
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  TOKEN_HELD       // Token booked, vehicle reserved but not yet physically assigned
+  RENTED           // Assigned to an active pilot
+  MAINTENANCE
+  RETIRED
+}
+
+enum TokenStatus {
+  PENDING          // Booked by pilot, awaiting hub confirmation
+  CONFIRMED        // Hub confirmed the slot
+  ASSIGNED         // Physical vehicle handed over → VehicleAssignment created
+  EXPIRED          // Not confirmed/picked within 24h
+  CANCELLED        // Cancelled by pilot (within 2h window)
+}
+
+enum TransactionType {
+  EARNINGS_CREDIT
+  RENT_DEBIT
+  INCENTIVE_CREDIT
+  CASHBACK_CREDIT
+  PAYOUT_DEBIT
+  REFUND_CREDIT
+  ADJUSTMENT
+}
+
+enum RentCycleStatus {
+  PENDING
+  PAID
+  OVERDUE          // >7 days unpaid → pilot status set to INACTIVE
+  WAIVED           // Admin-waived
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum RTOStatus {
+  PENDING_PAYMENT  // Down payment not yet received
+  ACTIVE           // Instalments running
+  DEFAULTED        // 3+ consecutive missed instalments
+  COMPLETED        // Full tenure done → vehicle ownership transferred
+  CANCELLED
+}
+
+enum EscalationCategory {
+  VEHICLE_BREAKDOWN
+  PAYMENT_ISSUE
+  KYC_ISSUE
+  CLIENT_DISPUTE
+  RENTAL_ISSUE
+  OTHER
+}
+
+enum EscalationPriority {
+  LOW              // SLA: 72h
+  MEDIUM           // SLA: 24h
+  HIGH             // SLA: 4h
+  CRITICAL         // SLA: 1h → immediate OPS_ADMIN alert
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum StepStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED        // Pilot uploaded/filled; awaiting admin verification
+  VERIFIED         // Confirmed (by admin or auto)
+  FAILED           // Rejected; pilot must redo
+}
+
+// ============================================================
+// GEOGRAPHY
+// ============================================================
+
+model City {
+  id        String    @id @default(cuid())
+  name      String    @unique   // "Bengaluru", "New Delhi", etc.
+  state     String
+  code      String    @unique   // "BLR", "DEL", "MUM", "GGN", "NOI", "FBD"
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  hubs      Hub[]
+  pilots    Pilot[]
+
+  @@map("cities")
+}
+
+model Hub {
+  id          String      @id @default(cuid())
+  name        String
+  cityId      String
+  city        City        @relation(fields: [cityId], references: [id])
+  address     String
+  latitude    Decimal?    @db.Decimal(10, 8)
+  longitude   Decimal?    @db.Decimal(11, 8)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  hubManagers HubManager[]
+  teamLeads   TeamLead[]
+  vehicles    Vehicle[]
+  pilots      Pilot[]
+  tokens      VehicleToken[]
+
+  @@map("hubs")
+}
+
+// ============================================================
+// IDENTITY & ROLES
+// ============================================================
+
+model User {
+  id          String      @id @default(cuid())
+  phone       String      @unique
+  name        String?
+  role        UserRole    @default(PILOT)
+  language    Language    @default(ENGLISH)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  pilot       Pilot?
+  teamLead    TeamLead?
+  hubManager  HubManager?
+
+  @@map("users")
+}
+
+model TeamLead {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  hubId     String
+  hub       Hub       @relation(fields: [hubId], references: [id])
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  pilots    Pilot[]
+
+  @@map("team_leads")
+}
+
+model HubManager {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  hubId     String
+  hub       Hub       @relation(fields: [hubId], references: [id])
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@map("hub_managers")
+}
+
+// ============================================================
+// PILOT CORE
+// ============================================================
+
+model Pilot {
+  id                 String        @id @default(cuid())
+  userId             String        @unique
+  user               User          @relation(fields: [userId], references: [id])
+  pilotCode          String        @unique // e.g. ZP-DEL-823741
+  dateOfBirth        DateTime?
+  address            String?
+  cityId             String?
+  city               City?         @relation(fields: [cityId], references: [id])
+  hubId              String?
+  hub                Hub?          @relation(fields: [hubId], references: [id])
+  teamLeadId         String?
+  teamLead           TeamLead?     @relation(fields: [teamLeadId], references: [id])
+  offeringType       OfferingType?
+  planType           PlanType?
+  status             PilotStatus   @default(ONBOARDING)
+  badgeLevel         BadgeLevel?
+  referralClientCode String?       // B2C: client code shared for cashback
+  isActive           Boolean       @default(true)
+  joinedAt           DateTime?     // Set when status → ACTIVE
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // 1:1 relations
+  kyc                KYC?
+  bankDetails        BankDetails?
+  wallet             Wallet?
+  vehicleAssignment  VehicleAssignment?
+  rentToOwnContract  RentToOwnContract?
+  onboardingProgress OnboardingProgress?
+
+  // 1:many relations
+  clientPilots       ClientPilot[]
+  tokens             VehicleToken[]
+  rentCycles         RentCycle[]
+  payouts            Payout[]
+  escalations        Escalation[]       @relation("PilotEscalations")
+  notifications      Notification[]
+
+  @@map("pilots")
+}
+
+model OnboardingProgress {
+  id                   String      @id @default(cuid())
+  pilotId              String      @unique
+  pilot                Pilot       @relation(fields: [pilotId], references: [id])
+
+  // Steps shared by all offerings
+  personalInfo         StepStatus  @default(PENDING)
+  aadhaar              StepStatus  @default(PENDING)
+  pan                  StepStatus  @default(PENDING)
+  drivingLicence       StepStatus  @default(PENDING)
+  bankDetails          StepStatus  @default(PENDING)
+  teamLeadSelection    StepStatus  @default(PENDING)
+
+  // Conditional steps (set based on offeringType + planType)
+  clientSelection      StepStatus  @default(PENDING) // B2B plans only
+  cashbackClientId     StepStatus  @default(PENDING) // B2C optional
+  tokenBooking         StepStatus  @default(PENDING) // Rent 2W/3W only
+  loaderTokenBooking   StepStatus  @default(PENDING) // Rent 3W only (overrides tokenBooking)
+  paymentVerification  StepStatus  @default(PENDING) // RTO only (down payment)
+  byobVehicleDetails   StepStatus  @default(PENDING) // BYOB only
+
+  completedAt          DateTime?
+  updatedAt            DateTime    @updatedAt
+
+  @@map("onboarding_progress")
+}
+
+// ============================================================
+// KYC & DOCUMENTS
+// ============================================================
+
+model KYC {
+  id                     String     @id @default(cuid())
+  pilotId                String     @unique
+  pilot                  Pilot      @relation(fields: [pilotId], references: [id])
+
+  // Aadhaar — number stored AES-256 encrypted
+  aadhaarNumber          String?
+  aadhaarFrontUrl        String?
+  aadhaarBackUrl         String?
+  aadhaarStatus          KYCStatus  @default(PENDING)
+  aadhaarRejectionReason String?
+
+  // PAN
+  panNumber              String?
+  panUrl                 String?
+  panStatus              KYCStatus  @default(PENDING)
+  panRejectionReason     String?
+
+  // Driving Licence
+  dlNumber               String?
+  dlFrontUrl             String?
+  dlBackUrl              String?
+  dlExpiryDate           DateTime?
+  dlStatus               KYCStatus  @default(PENDING)
+  dlRejectionReason      String?
+
+  // Overall
+  selfieUrl              String?
+  overallStatus          KYCStatus  @default(PENDING)
+  verifiedAt             DateTime?
+  verifiedByUserId       String?    // Admin user ID (loose reference)
+
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  @@map("kyc")
+}
+
+model BankDetails {
+  id            String    @id @default(cuid())
+  pilotId       String    @unique
+  pilot         Pilot     @relation(fields: [pilotId], references: [id])
+  accountHolder String
+  accountNumber String
+  ifscCode      String
+  bankName      String
+  accountType   String    @default("SAVINGS")
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("bank_details")
+}
+
+// ============================================================
+// FLEET — VEHICLES & TOKENS
+// ============================================================
+
+model Vehicle {
+  id              String           @id @default(cuid())
+  hubId           String
+  hub             Hub              @relation(fields: [hubId], references: [id])
+  registrationNo  String           @unique
+  vehicleType     VehicleType
+  vehicleCategory VehicleCategory
+  brand           String
+  model           String
+  year            Int
+  condition       VehicleCondition @default(NEW)
+  batteryType     BatteryType
+  speedKmph       Int
+  rangeKm         Int
+  weeklyRentB2B   Decimal          @db.Decimal(10, 2) // discounted for B2B plans
+  weeklyRentB2C   Decimal          @db.Decimal(10, 2) // standard for B2C plans
+  status          VehicleStatus    @default(AVAILABLE)
+  imageUrl        String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  assignment      VehicleAssignment?
+  tokens          VehicleToken[]
+  rentCycles      RentCycle[]
+
+  @@map("vehicles")
+}
+
+model VehicleAssignment {
+  id          String    @id @default(cuid())
+  pilotId     String    @unique  // one active assignment per pilot
+  pilot       Pilot     @relation(fields: [pilotId], references: [id])
+  vehicleId   String    @unique  // one assignment per vehicle
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id])
+  assignedAt  DateTime  @default(now())
+  returnedAt  DateTime?
+  isActive    Boolean   @default(true)
+
+  @@map("vehicle_assignments")
+}
+
+model VehicleToken {
+  id          String      @id @default(cuid())
+  pilotId     String
+  pilot       Pilot       @relation(fields: [pilotId], references: [id])
+  hubId       String
+  hub         Hub         @relation(fields: [hubId], references: [id])
+  vehicleId   String?     // null until hub assigns a specific vehicle
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id])
+  tokenDate   DateTime
+  slotTime    String?     // "09:00-11:00"
+  status      TokenStatus @default(PENDING)
+  expiresAt   DateTime    // tokenDate + 24h
+  confirmedAt DateTime?
+  assignedAt  DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@map("vehicle_tokens")
+}
+
+// ============================================================
+// CLIENTS & B2B LINKING
+// ============================================================
+
+model Client {
+  id           String        @id @default(cuid())
+  name         String        // "Zomato", "Swiggy", "Zepto", "Blinkit", "Porter"
+  clientCode   String        @unique  // Pilot enters this code during onboarding
+  contactName  String?
+  contactPhone String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  clientPilots ClientPilot[]
+
+  @@map("clients")
+}
+
+model ClientPilot {
+  id         String    @id @default(cuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id])
+  pilotId    String
+  pilot      Pilot     @relation(fields: [pilotId], references: [id])
+  isPrimary  Boolean   @default(false) // true for first/main client
+  assignedAt DateTime  @default(now())
+
+  @@unique([clientId, pilotId])
+  @@map("client_pilots")
+}
+
+// ============================================================
+// FINANCE — WALLET & TRANSACTIONS
+// ============================================================
+
+model Wallet {
+  id           String              @id @default(cuid())
+  pilotId      String              @unique
+  pilot        Pilot               @relation(fields: [pilotId], references: [id])
+  balance      Decimal             @default(0) @db.Decimal(10, 2)
+  totalEarned  Decimal             @default(0) @db.Decimal(10, 2)
+  totalPaid    Decimal             @default(0) @db.Decimal(10, 2)
+  updatedAt    DateTime            @updatedAt
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String          @id @default(cuid())
+  walletId    String
+  wallet      Wallet          @relation(fields: [walletId], references: [id])
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  description String
+  referenceId String?         // RentCycle ID, Payout ID, Razorpay payment ID, etc.
+  createdAt   DateTime        @default(now())
+
+  @@map("wallet_transactions")
+}
+
+model RentCycle {
+  id                  String          @id @default(cuid())
+  pilotId             String
+  pilot               Pilot           @relation(fields: [pilotId], references: [id])
+  vehicleId           String
+  vehicle             Vehicle         @relation(fields: [vehicleId], references: [id])
+  weekStartDate       DateTime
+  weekEndDate         DateTime
+  rentAmount          Decimal         @db.Decimal(10, 2) // copied from vehicle at time of cycle
+  status              RentCycleStatus @default(PENDING)
+  paidAt              DateTime?
+  razorpayOrderId     String?
+  razorpayPaymentId   String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@map("rent_cycles")
+}
+
+model Payout {
+  id               String       @id @default(cuid())
+  pilotId          String
+  pilot            Pilot        @relation(fields: [pilotId], references: [id])
+  amount           Decimal      @db.Decimal(10, 2)
+  weekStartDate    DateTime
+  weekEndDate      DateTime
+  status           PayoutStatus @default(PENDING)
+  razorpayPayoutId String?
+  processedAt      DateTime?
+  failureReason    String?
+  createdAt        DateTime     @default(now())
+
+  @@map("payouts")
+}
+
+// ============================================================
+// RENT-TO-OWN
+// ============================================================
+
+model RentToOwnContract {
+  id                 String          @id @default(cuid())
+  pilotId            String          @unique
+  pilot              Pilot           @relation(fields: [pilotId], references: [id])
+  vehicleId          String          // Reserved vehicle (may not be assigned yet)
+  downPayment        Decimal         @db.Decimal(10, 2)
+  processingFee      Decimal         @db.Decimal(10, 2)
+  weeklyInstalment   Decimal         @db.Decimal(10, 2)
+  totalTenureWeeks   Int             @default(52) // 12 months
+  weeksCompleted     Int             @default(0)
+  missedInstalments  Int             @default(0)  // 3+ → DEFAULTED
+  startDate          DateTime
+  expectedEndDate    DateTime
+  status             RTOStatus       @default(PENDING_PAYMENT)
+  completedAt        DateTime?
+  downPaymentOrderId String?
+  downPaymentPaidAt  DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  instalments        RTOInstalment[]
+
+  @@map("rent_to_own_contracts")
+}
+
+model RTOInstalment {
+  id              String            @id @default(cuid())
+  contractId      String
+  contract        RentToOwnContract @relation(fields: [contractId], references: [id])
+  weekNumber      Int               // 1–52
+  amount          Decimal           @db.Decimal(10, 2)
+  dueDate         DateTime
+  paidAt          DateTime?
+  status          RentCycleStatus   @default(PENDING)
+  razorpayOrderId String?
+  createdAt       DateTime          @default(now())
+
+  @@unique([contractId, weekNumber]) // no duplicate weeks per contract
+  @@map("rto_instalments")
+}
+
+// ============================================================
+// ESCALATIONS
+// ============================================================
+
+model Escalation {
+  id                String             @id @default(cuid())
+  raisedByPilotId   String?
+  raisedByPilot     Pilot?             @relation("PilotEscalations", fields: [raisedByPilotId], references: [id])
+  raisedByTLUserId  String?            // Loose ref to User.id (TL who raised it)
+  category          EscalationCategory
+  priority          EscalationPriority @default(MEDIUM)
+  description       String
+  attachmentUrl     String?
+  status            EscalationStatus   @default(OPEN)
+  assignedToUserId  String?            // TL or admin assigned to resolve
+  slaDeadlineAt     DateTime?          // Computed on creation from priority
+  resolvedAt        DateTime?
+  resolution        String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@map("escalations")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String    @id @default(cuid())
+  pilotId     String
+  pilot       Pilot     @relation(fields: [pilotId], references: [id])
+  title       String
+  body        String
+  type        String    // "KYC_APPROVED" | "TOKEN_CONFIRMED" | "RENT_DUE" | etc.
+  isRead      Boolean   @default(false)
+  referenceId String?   // ID of the related entity (token ID, rent cycle ID, etc.)
+  createdAt   DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+// ============================================================
+// SYSTEM — IDEMPOTENCY
+// ============================================================
+
+model ProcessedWebhookEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique  // Razorpay event ID — checked before processing
+  source      String   @default("razorpay")
+  payload     Json?    // Optional: store raw payload for audit
+  processedAt DateTime @default(now())
+
+  @@map("processed_webhook_events")
+}

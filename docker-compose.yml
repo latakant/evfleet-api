@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: evfleet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evfleet
+      POSTGRES_PASSWORD: evfleet_dev_pass
+      POSTGRES_DB: evfleet_db
+    ports:
+      - '5435:5432'
+    volumes:
+      - evfleet_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: evfleet-redis
+    restart: unless-stopped
+    ports:
+      - '6382:6379'
+    volumes:
+      - evfleet_redis_data:/data
+
+volumes:
+  evfleet_postgres_data:
+  evfleet_redis_data:
