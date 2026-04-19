@@ -104,6 +104,71 @@ async function main() {
   }
   console.log(`  ✅  ${clientCount} clients`);
 
+  // ── Vehicles (2W + 3W per hub, seeded for first 4 hubs) ───────
+  const firstHubIds = [
+    'seed-hub-mundka-hub',
+    'seed-hub-dwarka-hub',
+    'seed-hub-sector-66-hub',
+    'seed-hub-badshahpur-hub',
+  ];
+
+  const vehicleTemplates = [
+    {
+      suffix: '2w-a',
+      vehicleType: 'TWO_WHEELER',
+      vehicleCategory: 'SCOOTER',
+      brand: 'Zypp',
+      model: 'EZ1',
+      year: 2024,
+      batteryType: 'SWAP',
+      speedKmph: 55,
+      rangeKm: 100,
+      weeklyRentB2B: '799.00',
+      weeklyRentB2C: '999.00',
+    },
+    {
+      suffix: '3w-a',
+      vehicleType: 'THREE_WHEELER',
+      vehicleCategory: 'LOADER',
+      brand: 'Euler',
+      model: 'HiLoad',
+      year: 2024,
+      batteryType: 'CHARGING',
+      speedKmph: 50,
+      rangeKm: 120,
+      weeklyRentB2B: '1299.00',
+      weeklyRentB2C: '1499.00',
+    },
+  ];
+
+  let vehicleCount = 0;
+  for (const hubId of firstHubIds) {
+    for (const tmpl of vehicleTemplates) {
+      const regNo = `EV-${hubId.slice(-3).toUpperCase()}-${tmpl.suffix.toUpperCase()}`;
+      await prisma.vehicle.upsert({
+        where: { registrationNo: regNo },
+        update: {},
+        create: {
+          hubId,
+          registrationNo: regNo,
+          vehicleType: tmpl.vehicleType as 'TWO_WHEELER' | 'THREE_WHEELER',
+          vehicleCategory: tmpl.vehicleCategory,
+          brand: tmpl.brand,
+          model: tmpl.model,
+          year: tmpl.year,
+          batteryType: tmpl.batteryType,
+          speedKmph: tmpl.speedKmph,
+          rangeKm: tmpl.rangeKm,
+          weeklyRentB2B: tmpl.weeklyRentB2B,
+          weeklyRentB2C: tmpl.weeklyRentB2C,
+          status: 'AVAILABLE',
+        },
+      });
+      vehicleCount++;
+    }
+  }
+  console.log(`  ✅  ${vehicleCount} vehicles`);
+
   // ── Super Admin user ─────────────────────────────────────────
   const admin = await prisma.user.upsert({
     where: { phone: '+919999999999' },
