@@ -1,9 +1,10 @@
 # evfleet-api — AI Status
-# Last scored: 2026-04-25
+# Last scored: 2026-04-24
 
 ## Score: null (not yet scored — first governance session)
 ## Decision: ALLOW
 ## Phase: phase-2-backend
+## Tests: 58 unit (5 suites — notifications, escalations, payouts, rto, rent-cron)
 
 ## Modules Complete (11 original + 3 new = 14 total)
 
@@ -37,7 +38,6 @@
 None critical. Potential next:
 - Razorpay webhook for rent cycle payment (currently admin-manual)
 - FCM device token registration (currently topic-based)
-- E2E/unit tests
 
 ## Next Action
 
