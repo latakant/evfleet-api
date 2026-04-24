@@ -19,6 +19,9 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { RentModule } from './modules/rent/rent.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { EscalationsModule } from './modules/escalations/escalations.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
   imports: [
@@ -78,6 +81,9 @@ import { AdminModule } from './modules/admin/admin.module';
     RentModule,
     OnboardingModule,
     AdminModule,
+    NotificationsModule,
+    EscalationsModule,
+    PayoutsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

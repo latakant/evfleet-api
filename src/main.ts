@@ -65,7 +65,11 @@ async function bootstrap() {
       .addTag('Vehicles', 'Vehicle and token management')
       .addTag('Onboarding', 'Pilot onboarding progress')
       .addTag('Wallet', 'Wallet and transactions')
-      .addTag('Rent', 'Rent cycles and payouts')
+      .addTag('Rent', 'Rent cycles')
+      .addTag('RTO', 'Rent-to-Own contracts and instalments')
+      .addTag('Payouts', 'Pilot earnings payouts')
+      .addTag('Escalations', 'Issue escalation management')
+      .addTag('Notifications', 'Pilot push notifications')
       .addTag('Admin', 'Admin panel')
       .build();
 
