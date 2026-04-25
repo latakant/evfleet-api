@@ -9,6 +9,7 @@ import { SharedModule } from './shared/shared.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './shared/guards/roles.guard';
 import { UsersModule } from './modules/users/users.module';
 import { PilotsModule } from './modules/pilots/pilots.module';
 import { KycModule } from './modules/kyc/kyc.module';
@@ -88,6 +89,7 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

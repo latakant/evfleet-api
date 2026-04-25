@@ -35,21 +35,21 @@ describe('EscalationsService', () => {
     it('throws NotFoundException if pilot not found', async () => {
       mockPrisma.client.pilot.findUnique.mockResolvedValue(null);
       await expect(
-        service.create('u1', { category: EscalationCategory.VEHICLE, description: 'test' }),
+        service.create('u1', { category: EscalationCategory.VEHICLE_BREAKDOWN, description: 'test' }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException for suspended pilots', async () => {
       mockPrisma.client.pilot.findUnique.mockResolvedValue({ id: 'p1', status: 'SUSPENDED' });
       await expect(
-        service.create('u1', { category: EscalationCategory.VEHICLE, description: 'test' }),
+        service.create('u1', { category: EscalationCategory.VEHICLE_BREAKDOWN, description: 'test' }),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ForbiddenException for terminated pilots', async () => {
       mockPrisma.client.pilot.findUnique.mockResolvedValue({ id: 'p1', status: 'TERMINATED' });
       await expect(
-        service.create('u1', { category: EscalationCategory.PAYMENT, description: 'test' }),
+        service.create('u1', { category: EscalationCategory.PAYMENT_ISSUE, description: 'test' }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -57,7 +57,7 @@ describe('EscalationsService', () => {
       mockPrisma.client.pilot.findUnique.mockResolvedValue({ id: 'p1', status: 'ACTIVE' });
       mockPrisma.client.escalation.create.mockResolvedValue({ id: 'e1' });
 
-      await service.create('u1', { category: EscalationCategory.PAYMENT, description: 'test' });
+      await service.create('u1', { category: EscalationCategory.PAYMENT_ISSUE, description: 'test' });
       const call = mockPrisma.client.escalation.create.mock.calls[0][0];
       expect(call.data.priority).toBe(EscalationPriority.MEDIUM);
     });
@@ -68,7 +68,7 @@ describe('EscalationsService', () => {
 
       const before = Date.now();
       await service.create('u1', {
-        category: EscalationCategory.VEHICLE,
+        category: EscalationCategory.VEHICLE_BREAKDOWN,
         priority: EscalationPriority.HIGH,
         description: 'brake issue',
       });
