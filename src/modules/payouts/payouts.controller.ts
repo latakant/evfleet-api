@@ -11,7 +11,7 @@ class GeneratePayoutsDto {
   @ApiProperty({ example: '2026-04-21' }) @IsDateString() weekStartDate: string;
   @ApiProperty({ example: '2026-04-27' }) @IsDateString() weekEndDate: string;
 }
-class MarkPaidDto {
+class MarkPayoutPaidDto {
   @ApiProperty() @IsString() razorpayPayoutId: string;
 }
 class MarkFailedDto {
@@ -60,7 +60,7 @@ export class PayoutsController {
   @Patch(':id/paid')
   @Roles(UserRole.OPS_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: '[Admin] Mark payout as paid with Razorpay payout ID' })
-  markPaid(@Param('id') id: string, @Body() dto: MarkPaidDto) {
+  markPaid(@Param('id') id: string, @Body() dto: MarkPayoutPaidDto) {
     return this.payoutsService.markPaid(id, dto.razorpayPayoutId);
   }
 

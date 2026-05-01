@@ -17,7 +17,7 @@ class GenerateCyclesDto {
   @ApiPropertyOptional({ example: '2026-04-21' }) @IsDateString() weekStartDate: string;
   @ApiPropertyOptional({ example: '2026-04-27' }) @IsDateString() weekEndDate: string;
 }
-class MarkPaidDto {
+class MarkRentPaidDto {
   @ApiPropertyOptional() @IsOptional() @IsString() razorpayPaymentId?: string;
 }
 
@@ -76,7 +76,7 @@ export class RentController {
   @Roles(UserRole.OPS_ADMIN, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '[Admin] Mark rent cycle paid → debit pilot wallet' })
-  markPaid(@Param('id') id: string, @Body() dto: MarkPaidDto) {
+  markPaid(@Param('id') id: string, @Body() dto: MarkRentPaidDto) {
     return this.rentService.markPaid(id, dto.razorpayPaymentId);
   }
 
