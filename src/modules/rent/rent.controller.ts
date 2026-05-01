@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Patch, Param, Body, Query, Req, Headers,
-  HttpCode, HttpStatus, RawBodyRequest,
+  HttpCode, HttpStatus,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { RentCycleStatus, UserRole } from '@prisma/client';
 import { IsString, IsDateString, IsOptional } from 'class-validator';
