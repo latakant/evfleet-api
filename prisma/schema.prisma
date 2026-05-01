@@ -282,6 +282,7 @@ model Pilot {
   status             PilotStatus   @default(ONBOARDING)
   badgeLevel         BadgeLevel?
   referralClientCode String?       // B2C: client code shared for cashback
+  fcmToken           String?       // Device token for direct push (updated on each login)
   isActive           Boolean       @default(true)
   joinedAt           DateTime?     // Set when status → ACTIVE
   createdAt          DateTime      @default(now())

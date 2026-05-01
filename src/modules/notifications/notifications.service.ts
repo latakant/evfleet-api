@@ -18,26 +18,25 @@ export class NotificationsService {
     // Best-effort FCM push — failure does not fail the parent transaction
     const fcmKey = process.env.FCM_SERVER_KEY;
     if (fcmKey) {
-      // Get FCM token from pilot's user record if stored
       const pilot = await this.prisma.client.pilot.findUnique({
         where: { id: pilotId },
-        select: { user: { select: { phone: true } } },
+        select: { fcmToken: true },
       });
-      if (pilot) {
-        try {
-          await axios.post(
-            'https://fcm.googleapis.com/fcm/send',
-            {
-              to: `/topics/pilot-${pilotId}`,
-              notification: { title, body },
-              data: { type, referenceId: referenceId ?? '' },
-            },
-            { headers: { Authorization: `key=${fcmKey}`, 'Content-Type': 'application/json' } },
-          );
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.logger.warn(`FCM push failed for pilot ${pilotId}: ${msg}`);
-        }
+      // Prefer direct device token; fall back to topic subscription
+      const recipient = pilot?.fcmToken ?? `/topics/pilot-${pilotId}`;
+      try {
+        await axios.post(
+          'https://fcm.googleapis.com/fcm/send',
+          {
+            to: recipient,
+            notification: { title, body },
+            data: { type, referenceId: referenceId ?? '' },
+          },
+          { headers: { Authorization: `key=${fcmKey}`, 'Content-Type': 'application/json' } },
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`FCM push failed for pilot ${pilotId}: ${msg}`);
       }
     }
 

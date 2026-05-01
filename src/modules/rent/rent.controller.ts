@@ -1,8 +1,13 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller, Get, Post, Patch, Param, Body, Query, Req, Headers,
+  HttpCode, HttpStatus, RawBodyRequest,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { RentCycleStatus, UserRole } from '@prisma/client';
 import { IsString, IsDateString, IsOptional } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Public } from '../../shared/decorators/public.decorator';
 import { RentService } from './rent.service';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -20,6 +25,17 @@ class MarkPaidDto {
 @Controller('rent')
 export class RentController {
   constructor(private readonly rentService: RentService) {}
+
+  @Post('webhook/razorpay')
+  @Public()
+  @ApiExcludeEndpoint()
+  @HttpCode(HttpStatus.OK)
+  handleRazorpayWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-razorpay-signature') signature: string,
+  ) {
+    return this.rentService.handleRazorpayWebhook(req.rawBody!, signature);
+  }
 
   @Get('me')
   @ApiOperation({ summary: 'My rent cycles (paginated)' })

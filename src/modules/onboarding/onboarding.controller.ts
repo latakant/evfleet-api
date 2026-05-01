@@ -1,7 +1,8 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { OfferingType, PlanType } from '@prisma/client';
 import { OnboardingService } from './onboarding.service';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 
@@ -22,6 +23,11 @@ class BankDetailsDto {
 
 class SelectTeamLeadDto {
   @ApiProperty() @IsString() teamLeadId: string;
+}
+
+class SelectOfferingDto {
+  @ApiProperty({ enum: OfferingType }) @IsEnum(OfferingType) offeringType: OfferingType;
+  @ApiProperty({ enum: PlanType }) @IsEnum(PlanType) planType: PlanType;
 }
 
 @ApiTags('Onboarding')
@@ -52,5 +58,11 @@ export class OnboardingController {
   @ApiOperation({ summary: 'Select team lead (step 6) — also sets hub' })
   selectTeamLead(@CurrentUser('id') userId: string, @Body() dto: SelectTeamLeadDto) {
     return this.onboardingService.selectTeamLead(userId, dto.teamLeadId);
+  }
+
+  @Post('select-offering')
+  @ApiOperation({ summary: 'Persist offering type and plan type to pilot profile' })
+  selectOffering(@CurrentUser('id') userId: string, @Body() dto: SelectOfferingDto) {
+    return this.onboardingService.selectOffering(userId, dto.offeringType, dto.planType);
   }
 }

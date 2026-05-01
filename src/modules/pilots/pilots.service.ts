@@ -55,6 +55,18 @@ export class PilotsService {
     });
   }
 
+  async registerDeviceToken(userId: string, token: string) {
+    const pilot = await this.prisma.client.pilot.findUnique({ where: { userId } });
+    if (!pilot) throw new NotFoundException('Pilot profile not found');
+
+    await this.prisma.client.pilot.update({
+      where: { userId },
+      data: { fcmToken: token },
+    });
+
+    return { registered: true };
+  }
+
   // Admin
   async findAll(params: { status?: PilotStatus; page: number; limit: number }) {
     const { status, page, limit } = params;

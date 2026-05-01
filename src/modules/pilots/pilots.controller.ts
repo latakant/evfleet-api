@@ -1,5 +1,14 @@
-import { Controller, Get, Patch, Param, Body, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Patch, Post, Param, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class RegisterDeviceTokenDto {
+  @ApiProperty({ example: 'fcm_device_token_here' })
+  @IsString()
+  @Length(1, 512)
+  token: string;
+}
 import { PilotStatus, UserRole } from '@prisma/client';
 import { PilotsService } from './pilots.service';
 import { UpdatePilotDto } from './dto/update-pilot.dto';
@@ -16,6 +25,14 @@ export class PilotsController {
   @ApiOperation({ summary: 'Get my pilot profile' })
   getMyProfile(@CurrentUser('id') userId: string) {
     return this.pilotsService.getMyProfile(userId);
+  }
+
+  @Post('me/device-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Register or update FCM device token for push notifications' })
+  @ApiBody({ type: RegisterDeviceTokenDto })
+  registerDeviceToken(@CurrentUser('id') userId: string, @Body() dto: RegisterDeviceTokenDto) {
+    return this.pilotsService.registerDeviceToken(userId, dto.token);
   }
 
   @Patch('me')

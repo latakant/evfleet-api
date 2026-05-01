@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { StepStatus, OfferingType } from '@prisma/client';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { StepStatus, OfferingType, PlanType } from '@prisma/client';
 import { PrismaService } from '../../shared/services/prisma.service';
 
 @Injectable()
@@ -113,6 +113,22 @@ export class OnboardingService {
     });
 
     return { message: 'Bank details saved' };
+  }
+
+  async selectOffering(userId: string, offeringType: OfferingType, planType: PlanType) {
+    const pilot = await this.prisma.client.pilot.findUnique({ where: { userId } });
+    if (!pilot) throw new NotFoundException('Pilot not found');
+
+    if (pilot.status !== 'ONBOARDING') {
+      throw new BadRequestException('Offering can only be selected during onboarding');
+    }
+
+    await this.prisma.client.pilot.update({
+      where: { userId },
+      data: { offeringType, planType },
+    });
+
+    return { offeringType, planType };
   }
 
   async selectTeamLead(userId: string, teamLeadId: string) {

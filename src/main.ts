@@ -23,7 +23,7 @@ function validateSecrets(): void {
 async function bootstrap() {
   validateSecrets();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api');
   app.use(helmet());
